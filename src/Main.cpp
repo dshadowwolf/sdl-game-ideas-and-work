@@ -25,6 +25,7 @@ int main(int argc, char* args[]) {
     Rect fillSquare(SCREEN_WIDTH, SCREEN_HEIGHT);
     const int borderSize = 5;
     EventMarshaller* events = *(EventMarshaller::getInstance());
+
     events->registerEventHandler(SDL_QUIT, [&quit](SDL_Event *event) mutable -> bool { quit = true; return true; });
     events->registerEventHandler(SDL_WINDOWEVENT, [&quit](SDL_Event *event) mutable -> bool { if (event->window.event == SDL_WINDOWEVENT_CLOSE) quit = true; return true; });
     events->registerEventHandler(SDL_KEYDOWN, [&quit](SDL_Event *e) mutable -> bool { auto ks = e->key.keysym.sym; if (ks == SDLK_q || ks == SDLK_ESCAPE) quit = true; return true; });
@@ -70,8 +71,5 @@ int main(int argc, char* args[]) {
     delete renderer;
     delete wind;
     delete g;
-    std::cout << "Pausing for 10 seconds before `return 0;`" << std::endl;
-    std::cout.flush();
-    SDL_Delay(10000);
     return 0;
 }

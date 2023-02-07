@@ -9,7 +9,7 @@
 
 #include "generic_exception.hpp"
 
-typedef std::function<bool(SDL_Event *)> EventHandler; // bool ((*EventHandler)(SDL_Event *));
+typedef std::function<bool(SDL_Event *)> EventHandler;
 
 class EventMarshaller {
     private:
@@ -47,13 +47,12 @@ class EventMarshaller {
     }
 
     inline void runEvents(SDL_Event *event) {
-        std::for_each(handlers.begin(), handlers.end(), [event](auto item) { 
-            if (item.first == event->type) {
-                std::for_each(item.second.begin(), item.second.end(), [event](auto it) { 
-                    (*it)(event); 
-                });
-            }
-        });
+        std::unordered_set<std::shared_ptr<EventHandler>> events = handlers[(SDL_EventType)event->type];
+        bool keep_going = true;
+
+        for(auto iter = events.begin(); iter != events.end() && keep_going; iter++) {
+            keep_going = (*(*iter))(event);
+        }
     }
 
 };
