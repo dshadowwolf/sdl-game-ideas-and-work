@@ -57,3 +57,8 @@ void Renderer::drawRectOutline(SDL_Rect rect, uint8_t r, uint8_t g, uint8_t b, u
     SDL_SetRenderDrawColor(renderer, r, g, b, a);
     SDL_RenderDrawRect(renderer, &rect);
 }
+
+Texture *Renderer::textureFromSurface(SDL_Surface *surface) {
+    SDL_Texture *baseTexture = SDL_CreateTextureFromSurface(renderer, surface);
+    return new Texture(renderer, baseTexture);
+}

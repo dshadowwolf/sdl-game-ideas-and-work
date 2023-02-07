@@ -1,35 +1,7 @@
 #include "panel.hpp"
 
-/*
-
-class Panel {
-    std::shared_ptr<Rect> mRect;
-    std::shared_ptr<Renderer> mRenderer;
-    std::shared_ptr<SDL_Surface*> mSurface;
-    std::string mFontName;
-    uint8_t mBorderColor[4];
-    uint8_t mFontColor[4];
-    uint32_t x, y, w, h;
-    bool mBorder = false;
-    std::string mDisplayText;
-    std::string mFontName;
-    std::string mFontPath;
-    uint8_t mFontSize = 12;
-    std::shared_ptr<TTF_Font *> mFont;
-    public:
-    Panel(uint32_t xLoc, uint32_t yLoc, uint32_t width, uint32_t height, bool hasBorder, uint8_t borderColor[4], uint8_t textColor[4], std::string fontName);
-    ~Panel() = default;
-
-    void draw();
-    void drawWithText(std::string text);
-    void drawWithTextAndSize(std::string text, uint8_t fontSize);
-    std::shared_ptr<SDL_Surface*> getSurface();
-};
-
-*/
-
 Panel::Panel(Renderer *renderer, uint32_t xLoc, uint32_t yLoc, uint32_t width, uint32_t height, bool hasBorder, uint8_t borderColor[4], uint8_t textColor[4], std::string fontName)
-    : x(xLoc), y(yLoc), w(width), h(height), mBorder(hasBorder), mBorderColor(borderColor), mFontColor(textColor), mFontName(fontName)
+    : x(xLoc), y(yLoc), w(width), h(height), mBorder(hasBorder), mBorderColor { borderColor[0], borderColor[1], borderColor[2], borderColor[3] }, mFontColor { textColor[0], textColor[1], textColor[2], textColor[3] }, mFontName(fontName)
 {
     Rect *nRect = new Rect(w, h);
     nRect->setX(x);
@@ -61,22 +33,43 @@ void Panel::loadFont() {
     mFont = std::make_shared<TTF_Font *>(newFont);
 }
 
-void Panel::draw() {
+void Panel::draw(Rect *target) {
     if (mBorder) (*mRect)->drawBorder(*mRenderer, mBorderColor[0], mBorderColor[1], mBorderColor[2], mBorderColor[3]);
     if (mDisplayText.length() > 0) {
-        // draw text here
+        SDL_Color mColor;
+        mColor.a = mFontColor[3];
+        mColor.b = mFontColor[2];
+        mColor.g = mFontColor[1];
+        mColor.r = mFontColor[0];
+
+        SDL_Surface *textSurface = TTF_RenderUTF8_Blended_Wrapped( *mFont, mDisplayText.c_str(), mColor, (*mRect)->getW() - 5);
+        Texture *texture = (*mRenderer)->textureFromSurface(textSurface);
+        int w, h;
+        uint32_t f = SDL_PIXELFORMAT_ABGR8888;
+        texture->query(&f, NULL, &w, &h);
+        int orig_w = target->getW();
+        int orig_h = target->getH();
+        target->setW(w);
+        target->setH(h);
+        target->setX(target->getX()+5);
+        target->setY(target->getY()+5);
+        (*mRenderer)->copy(texture, NULL, target);
+        target->setW(orig_w);
+        target->setH(orig_h);
+        target->setX(target->getX()-5);
+        target->setY(target->getY()-5);
     }
 }
 
-void Panel::drawWithText(std::string text) {
+void Panel::drawWithText(Rect *target, std::string text) {
     mDisplayText = text;
-    draw();
+    draw(target);
 }
 
-void Panel::drawWithTextAndSize(std::string text, uint8_t fontSize) {
+void Panel::drawWithTextAndSize(Rect *target, std::string text, uint8_t fontSize) {
     mFontSize = fontSize;
     loadFont();
-    drawWithText(text);
+    drawWithText(target, text);
 }
 
 std::shared_ptr<SDL_Surface *> Panel::getSurface() {

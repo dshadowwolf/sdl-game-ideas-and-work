@@ -11,6 +11,7 @@ class Texture {
     public:
     Texture(SDL_Renderer *renderer);
     Texture(SDL_Renderer *renderer, std::string path);
+    Texture(SDL_Renderer *renderer, SDL_Texture *texture);
     ~Texture();
 
     SDL_Texture *getTexture();

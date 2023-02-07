@@ -10,6 +10,7 @@
 #include "rect.hpp"
 #include "eventmarshaller.hpp"
 #include "generic_exception.hpp"
+#include "panel.hpp"
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -20,6 +21,7 @@ int main(int argc, char* args[]) {
     Graphics *g;
     SDLWindow *wind;
     SDL_Surface *screenSurface = NULL;
+    Panel *bottomContent;
     Rect topPane(SCREEN_WIDTH - 2, (SCREEN_HEIGHT*0.75) - 2), bottomPane(SCREEN_WIDTH - 2, (SCREEN_HEIGHT*0.25) - 2);
     Rect topDivLeft((SCREEN_WIDTH*0.25)-4, (SCREEN_HEIGHT*0.75) - 6), topDivRight((SCREEN_WIDTH*0.75)-4, (SCREEN_HEIGHT*0.75) - 6);
     std::cout << "width: " << SCREEN_WIDTH << " -- height: " << SCREEN_HEIGHT * 0.75 << std::endl;
@@ -34,14 +36,20 @@ int main(int argc, char* args[]) {
     events->registerEventHandler(SDL_WINDOWEVENT, [&quit](SDL_Event *event) mutable -> bool { if (event->window.event == SDL_WINDOWEVENT_CLOSE) quit = true; return true; });
     events->registerEventHandler(SDL_KEYDOWN, [&quit](SDL_Event *e) mutable -> bool { auto ks = e->key.keysym.sym; if (ks == SDLK_q || ks == SDLK_ESCAPE) quit = true; return true; });
 
+    TTF_Init();
     try {
         g = new Graphics();
         wind = new SDLWindow("SDL Testing Project", SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, true);
         renderer = wind->getRenderer(SDL_RENDERER_ACCELERATED);
+        uint8_t color[4] = { 0xFF,0xFF,0xFF,0xFF};
+        bottomContent = new Panel(renderer, bottomPane.getX()+5, bottomPane.getY()+5, bottomPane.getW() - 5, bottomPane.getH() - 5, false, color, color, "cp437");
     } catch(GenericException e) {
         std::cerr << "Exception during startup: " << e.what() << std::endl;
         return -1;
     }
+
+    std::string panelText[4] = { "This is a test\nThis is only a test", "HELP! I'M TRAPPED IN THE INTERNET!", "Go Away, you bother me!", "Welcome to MS-DOS 2.0" };
+    uint8_t which = 0;
 
     topPane.setX(topX);
     topPane.setY(topY);
@@ -51,10 +59,6 @@ int main(int argc, char* args[]) {
     topDivRight.setY(topRightY);
     bottomPane.setX(bottomX);
     bottomPane.setY(bottomY);
-    topPane.drawBorder(renderer, 0xFF, 0x7F, 0x7F, 0xFF);
-    bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
-    topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
-    topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
 
     while(!quit) {
         SDL_Event e;
@@ -63,8 +67,16 @@ int main(int argc, char* args[]) {
             events->runEvents(&e);
         }
 
+        renderer->setDrawColor(0x00, 0x00, 0x00, 0xFF);
+        renderer->clear();
+        topPane.drawBorder(renderer, 0xFF, 0x7F, 0x7F, 0xFF);
+        bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
+        topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
+        topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
+        bottomContent->drawWithText(&bottomPane, panelText[(which++)%4]);
         renderer->present();
         wind->updateSurface();
+        SDL_Delay(1000);
     }
 
     delete renderer;

@@ -29,9 +29,9 @@ class Panel {
     Panel(Renderer *renderer, uint32_t xLoc, uint32_t yLoc, uint32_t width, uint32_t height, bool hasBorder, uint8_t borderColor[4], uint8_t textColor[4], std::string fontName);
     ~Panel();
 
-    void draw();
-    void drawWithText(std::string text);
-    void drawWithTextAndSize(std::string text, uint8_t fontSize);
+    void draw(Rect *target);
+    void drawWithText(Rect * target, std::string text);
+    void drawWithTextAndSize(Rect *target, std::string text, uint8_t fontSize);
     std::shared_ptr<SDL_Surface*> getSurface();
 };
 

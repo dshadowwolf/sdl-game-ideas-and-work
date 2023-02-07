@@ -16,6 +16,9 @@ Texture::Texture(SDL_Renderer *renderer) {
     mRenderer = renderer;
 }
 
+Texture::Texture(SDL_Renderer *renderer, SDL_Texture *texture)
+    : mRenderer(renderer), tex(texture)  {}
+    
 Texture::~Texture() {
     SDL_DestroyTexture(tex);
 }
