@@ -1,9 +1,12 @@
+#include <iostream>
 #include "rect.hpp"
-
+#include "renderer.hpp"
 
 Rect::Rect(uint32_t s_width, uint32_t s_height) {
     screen_width = s_width;
     screen_height = s_height;
+    rect.w = screen_width;
+    rect.h = screen_height;
 }
 
 void Rect::setW(uint32_t w) {
@@ -60,4 +63,8 @@ void Rect::scaleSize(uint32_t w, uint32_t h, uint32_t w_scale, uint32_t h_scale,
 
 SDL_Rect Rect::getRect() {
     return rect;
+}
+
+void Rect::drawBorder(Renderer *renderer, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    renderer->drawRectOutline(rect, r, g, b, a);
 }

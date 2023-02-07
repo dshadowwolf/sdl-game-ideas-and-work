@@ -6,7 +6,10 @@
 
 class Texture {
     SDL_Texture *tex;
+    SDL_Renderer *mRenderer;
+
     public:
+    Texture(SDL_Renderer *renderer);
     Texture(SDL_Renderer *renderer, std::string path);
     ~Texture();
 

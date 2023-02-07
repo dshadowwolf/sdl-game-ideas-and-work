@@ -48,3 +48,12 @@ void Renderer::copy(Texture *texture, Rect *src, Rect *dest) {
 void Renderer::present() {
     SDL_RenderPresent(renderer);
 }
+
+Texture *Renderer::getBlankTexture() {
+    return new Texture(renderer);
+}
+
+void Renderer::drawRectOutline(SDL_Rect rect, uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+    SDL_SetRenderDrawColor(renderer, r, g, b, a);
+    SDL_RenderDrawRect(renderer, &rect);
+}

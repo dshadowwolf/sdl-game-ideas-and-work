@@ -20,10 +20,14 @@ int main(int argc, char* args[]) {
     Graphics *g;
     SDLWindow *wind;
     SDL_Surface *screenSurface = NULL;
-    Texture *img;
-    Rect imgRect(SCREEN_WIDTH, SCREEN_HEIGHT);
-    Rect fillSquare(SCREEN_WIDTH, SCREEN_HEIGHT);
+    Rect topPane(SCREEN_WIDTH - 2, (SCREEN_HEIGHT*0.75) - 2), bottomPane(SCREEN_WIDTH - 2, (SCREEN_HEIGHT*0.25) - 2);
+    Rect topDivLeft((SCREEN_WIDTH*0.25)-4, (SCREEN_HEIGHT*0.75) - 6), topDivRight((SCREEN_WIDTH*0.75)-4, (SCREEN_HEIGHT*0.75) - 6);
+    std::cout << "width: " << SCREEN_WIDTH << " -- height: " << SCREEN_HEIGHT * 0.75 << std::endl;
+    Rect screenRect(SCREEN_WIDTH, SCREEN_HEIGHT);
+    int topX = 1, topY = 1, bottomY = (SCREEN_HEIGHT*0.75)+1, bottomX = 1;
+    int topLeftX = 3, topLeftY = 3, topRightX = (SCREEN_WIDTH*0.25)+2, topRightY = 3;
     const int borderSize = 5;
+
     EventMarshaller* events = *(EventMarshaller::getInstance());
 
     events->registerEventHandler(SDL_QUIT, [&quit](SDL_Event *event) mutable -> bool { quit = true; return true; });
@@ -34,22 +38,23 @@ int main(int argc, char* args[]) {
         g = new Graphics();
         wind = new SDLWindow("SDL Testing Project", SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, true);
         renderer = wind->getRenderer(SDL_RENDERER_ACCELERATED);
-        img = renderer->loadImage("/home/madman/projects/sdl-game-thing/photo_2021-11-08_22-23-35.jpg");
     } catch(GenericException e) {
         std::cerr << "Exception during startup: " << e.what() << std::endl;
         return -1;
     }
 
-    int w, h;
-    img->query(NULL, NULL, &w, &h);
-
-    imgRect.balanceHW(w, h);
-
-    fillSquare.setX(imgRect.getX());
-    fillSquare.setY(imgRect.getY());
-    uint32_t adjustHW = borderSize * 2;
-    uint32_t adjustXY = borderSize;
-    fillSquare.scaleSize(imgRect.getW(), imgRect.getH(), (uint32_t) borderSize * 2, (uint32_t) borderSize * 2, (uint32_t) borderSize, (uint32_t) borderSize);
+    topPane.setX(topX);
+    topPane.setY(topY);
+    topDivLeft.setX(topLeftX);
+    topDivRight.setX(topRightX);
+    topDivLeft.setY(topLeftY);
+    topDivRight.setY(topRightY);
+    bottomPane.setX(bottomX);
+    bottomPane.setY(bottomY);
+    topPane.drawBorder(renderer, 0xFF, 0x7F, 0x7F, 0xFF);
+    bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
+    topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
+    topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
 
     while(!quit) {
         SDL_Event e;
@@ -58,16 +63,10 @@ int main(int argc, char* args[]) {
             events->runEvents(&e);
         }
 
-        renderer->setDrawColor(0xFF, 0xFF, 0xFF, 0xFF);
-        renderer->clear();
-        renderer->setDrawColor(0x00, 0x00, 0x00, 0xFF);
-        renderer->fillRect(fillSquare);
-        renderer->copy(img, NULL, &imgRect);
         renderer->present();
         wind->updateSurface();
     }
 
-    delete img;
     delete renderer;
     delete wind;
     delete g;

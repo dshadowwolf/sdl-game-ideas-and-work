@@ -1,8 +1,11 @@
 #ifndef __RECT_HPP__
+#define __RECT_HPP__
 
 #include <SDL2/SDL.h>
 #include <string>
 #include "generic_exception.hpp"
+
+class Renderer; // forward def
 
 class Rect {
     SDL_Rect rect;
@@ -23,7 +26,7 @@ class Rect {
     void balanceHW(uint32_t w, uint32_t h);
     void scaleSize(uint32_t w, uint32_t h, uint32_t w_scale, uint32_t h_scale, uint32_t x_scale, uint32_t y_scale);
     SDL_Rect getRect();
+    void drawBorder(Renderer *renderer, uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 };
 
-#define __RECT_HPP__
 #endif
