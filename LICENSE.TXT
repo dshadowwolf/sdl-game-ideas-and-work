@@ -1,0 +1,3 @@
+This code is currently All Rights Reserved but open for viewing and using to learn. In the future, once a lot more work is done, I will be changing
+this to an open source license. At this point I'm leaning towards the 2-clause BSD license, though I might shift to the classic GPLv2 -- and no, 
+not the GPLv3 or even the GPLv2 with the "or later" allowance as I do not agree with some of the politics that are encoded in the GPLv3.
