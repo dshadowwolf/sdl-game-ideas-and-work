@@ -73,7 +73,8 @@ int main(int argc, char* args[]) {
         bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
         topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
         topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
-        bottomContent->drawWithText(&bottomPane, panelText[(which++)%4]);
+        bottomContent->appendData(panelText[(which++)%4]);
+        bottomContent->draw(&bottomPane);
         renderer->present();
         wind->updateSurface();
         SDL_Delay(1000);

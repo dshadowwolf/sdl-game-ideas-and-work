@@ -43,17 +43,32 @@ void Panel::draw(Rect *target) {
         mColor.r = mFontColor[0];
 
         SDL_Surface *textSurface = TTF_RenderUTF8_Blended_Wrapped( *mFont, mDisplayText.c_str(), mColor, (*mRect)->getW() - 5);
+        SDL_Rect srcRect = (*mRect)->getRect();
         Texture *texture = (*mRenderer)->textureFromSurface(textSurface);
         int w, h;
         uint32_t f = SDL_PIXELFORMAT_ABGR8888;
         texture->query(&f, NULL, &w, &h);
+        if (h > srcRect.h) {
+            std::cerr << "texture w == " << w << " -- h == " << h << std::endl;
+            (*mRect)->setY(h - srcRect.h);
+            std::cerr << "setting source Y to " << (*mRect)->getY() << " -- (h - srcRect.h) == (" << h << " - " << srcRect.h << ") == " << h - srcRect.h << std::endl;
+        } else {
+            (*mRect)->setY(0);
+        }
+        (*mRect)->setX(0);
+        // preserve the original height and width of the target rectangle
         int orig_w = target->getW();
         int orig_h = target->getH();
+        // change them to match what is needed for the text being displayed
+        // this is so things don't get scaled
         target->setW(w);
-        target->setH(h);
+        // lets have this capped, somewhat, so the scrolling works
+        target->setH(h <= srcRect.h?h:srcRect.h);
+        // make sure we render 5px inside the actual border of the box
         target->setX(target->getX()+5);
         target->setY(target->getY()+5);
-        (*mRenderer)->copy(texture, NULL, target);
+        (*mRenderer)->copy(texture, (*mRect), target);
+        // restore the target rect to its original state
         target->setW(orig_w);
         target->setH(orig_h);
         target->setX(target->getX()-5);
@@ -74,4 +89,11 @@ void Panel::drawWithTextAndSize(Rect *target, std::string text, uint8_t fontSize
 
 std::shared_ptr<SDL_Surface *> Panel::getSurface() {
     return mSurface;
+}
+
+void Panel::appendData(std::string data) {
+    if (!mDisplayText.empty() || mDisplayText[mDisplayText.length()-1] != '\n') {
+        mDisplayText += "\n";
+    }
+    mDisplayText += data;
 }
