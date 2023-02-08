@@ -32,6 +32,14 @@ void Renderer::fillRect(Rect &rect) {
     SDL_RenderFillRect(renderer, &r);
 }
 
+void Renderer::fillRect(Rect &rect, SDL_Color &color) {
+    SDL_Color saved;
+    SDL_GetRenderDrawColor(renderer, &saved.r, &saved.g, &saved.b, &saved.a);
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    fillRect(rect);
+    SDL_SetRenderDrawColor(renderer, saved.r, saved.g, saved.b, saved.a);
+}
+
 void Renderer::copy(Texture *texture, Rect *src, Rect *dest) {
     SDL_Rect *s, *d;
     SDL_Rect sr, dr;
