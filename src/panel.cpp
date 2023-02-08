@@ -74,7 +74,6 @@ void Panel::draw(Rect *target) {
         target->setW(23);
         target->setH(srcRect.h - 5);
         target->setX((*mRect)->getW()-25);
-        //target->setY((*mRect)->getY()+5);
         SDL_Color sbc = { 0x7F, 0x7F, 0x7F, 0xFF };
         SDL_Color sbhc = { 0xCC, 0xBB, 0xCC, 0xFF };
         (*mRenderer)->fillRect(*target, sbc);
