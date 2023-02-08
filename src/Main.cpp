@@ -50,6 +50,7 @@ int main(int argc, char* args[]) {
 
     std::string panelText[4] = { "This is a test\nThis is only a test", "HELP! I'M TRAPPED IN THE INTERNET!", "Go Away, you bother me!", "Welcome to MS-DOS 2.0" };
     uint8_t which = 0;
+    bottomContent->setFontSize(15);
 
     topPane.setX(topX);
     topPane.setY(topY);

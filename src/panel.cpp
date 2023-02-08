@@ -22,6 +22,11 @@ Panel::~Panel() {
     SDL_FreeSurface(*mSurface);
 }
 
+void Panel::setFontSize(uint32_t fontSize) {
+    mFontSize = fontSize;
+    loadFont();
+}
+
 void Panel::loadFont() {
     TTF_Font *newFont = TTF_OpenFont(mFontPath.c_str(), mFontSize);
     if (!newFont) {
@@ -70,32 +75,6 @@ void Panel::draw(Rect *target) {
         target->setX(target->getX()+5);
         target->setY(target->getY()+5);
         (*mRenderer)->copy(texture, (*mRect), target);
-        // draw scroll bar here...
-        target->setW(23);
-        target->setH(srcRect.h - 5);
-        target->setX((*mRect)->getW()-25);
-        SDL_Color sbc = { 0x7F, 0x7F, 0x7F, 0xFF };
-        SDL_Color sbhc = { 0xCC, 0xBB, 0xCC, 0xFF };
-        (*mRenderer)->fillRect(*target, sbc);
-        // draw the handle if needed -- this goes at the bottom of the whole thing, currently, but...
-        // we're going to have to move the whole scrollbar bit to its own class sooner or later
-        uint32_t y_start = target->getY();
-        SDL_Rect bx = { target->getX(), target->getY(), target->getW(), target->getH() };
-        if (h > srcRect.h) {
-            float perc =  (float)bx.h / (float)h;
-            if (perc < 0.15) { perc = 0.15; }
-            std::cerr << "perc is " << perc << "(" << bx.h << " / " << h << ")" << std::endl;
-            std::cerr << "Start is " << bx.y << " x " << bx.x << " sized " << bx.h << " x " << bx.w << std::endl;
-            uint32_t mod_height = bx.h * perc;
-            uint32_t top = y_start;
-            uint32_t clear_space = bx.h - mod_height;
-            top += clear_space;
-            std::cerr << "height modified is " << mod_height << " and Y is " << top << std::endl;
-            target->setY(top);
-            target->setH(mod_height);
-            (*mRenderer)->fillRect(*target, sbhc);
-            std::cerr << "Handle at " << target->getX() << " x " << target->getY() << " and is " << target->getW() << " x " << target->getH() << std::endl;
-        }
         // restore the target rect to its original state
         target->setW(orig_w);
         target->setH(orig_h);

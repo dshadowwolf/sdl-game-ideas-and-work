@@ -34,6 +34,7 @@ class Panel {
     void drawWithTextAndSize(Rect *target, std::string text, uint8_t fontSize);
     std::shared_ptr<SDL_Surface*> getSurface();
     void appendData(std::string data);
+    void setFontSize(uint32_t fontSize);
 };
 
 #define __PANEL_HPP__
