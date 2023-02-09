@@ -53,13 +53,8 @@ void Panel::draw(Rect *target) {
         int w, h;
         uint32_t f = SDL_PIXELFORMAT_ABGR8888;
         texture->query(&f, NULL, &w, &h);
-        if (h > srcRect.h) {
-            std::cerr << "texture w == " << w << " -- h == " << h << std::endl;
-            (*mRect)->setY(h - srcRect.h);
-            std::cerr << "setting source Y to " << (*mRect)->getY() << " -- (h - srcRect.h) == (" << h << " - " << srcRect.h << ") == " << h - srcRect.h << std::endl;
-        } else {
-            (*mRect)->setY(0);
-        }
+        if (h > srcRect.h) (*mRect)->setY(h - srcRect.h);
+        else (*mRect)->setY(0);
         (*mRect)->setX(0);
         // preserve the original height and width of the target rectangle
         int orig_w = target->getW();
@@ -74,7 +69,9 @@ void Panel::draw(Rect *target) {
         // make sure we render 5px inside the actual border of the box
         target->setX(target->getX()+5);
         target->setY(target->getY()+5);
+        (*mRect)->setY((*mRect)->getY()+3);
         (*mRenderer)->copy(texture, (*mRect), target);
+        (*mRect)->setY((*mRect)->getY()-3);
         // restore the target rect to its original state
         target->setW(orig_w);
         target->setH(orig_h);

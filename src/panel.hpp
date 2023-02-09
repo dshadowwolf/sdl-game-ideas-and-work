@@ -11,18 +11,6 @@
 #include "generic_exception.hpp"
 
 class Panel {
-    std::shared_ptr<Rect *> mRect;
-    std::shared_ptr<Renderer *> mRenderer;
-    std::shared_ptr<SDL_Surface*> mSurface;
-    std::string mFontName;
-    uint8_t mBorderColor[4];
-    uint8_t mFontColor[4];
-    uint32_t x, y, w, h;
-    bool mBorder = false;
-    std::string mDisplayText;
-    std::string mFontPath;
-    uint8_t mFontSize = 12;
-    std::shared_ptr<TTF_Font *> mFont;
     void loadFont();
 
     public:
@@ -35,6 +23,20 @@ class Panel {
     std::shared_ptr<SDL_Surface*> getSurface();
     void appendData(std::string data);
     void setFontSize(uint32_t fontSize);
+
+    protected:
+    std::string mDisplayText;
+    std::shared_ptr<Rect *> mRect;
+    std::shared_ptr<Renderer *> mRenderer;
+    std::shared_ptr<SDL_Surface*> mSurface;
+    std::string mFontName;
+    uint8_t mBorderColor[4];
+    uint8_t mFontColor[4];
+    uint32_t x, y, w, h;
+    bool mBorder = false;
+    std::string mFontPath;
+    uint8_t mFontSize = 12;
+    std::shared_ptr<TTF_Font *> mFont;
 };
 
 #define __PANEL_HPP__
