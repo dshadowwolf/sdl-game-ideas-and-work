@@ -6,10 +6,11 @@ SDLWindow::SDLWindow(std::string title, int width, int height, uint32_t flags, b
         window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags);
     else
         window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, flags);
-
+    
     if (window == NULL) {
-        std::cerr << "SDL2 Failed to create a window: " << SDL_GetError() << std::endl;
-        throw GenericException(SDL_GetError());
+        std::string err = SDL_GetError();
+        std::cerr << "SDL2 Failed to create a window: " << err << std::endl;
+        throw GenericException(err);
     }
 }
 

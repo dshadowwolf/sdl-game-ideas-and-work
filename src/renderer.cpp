@@ -7,8 +7,9 @@ Renderer::Renderer(SDL_Window *p, uint32_t flags) {
     renderer = SDL_CreateRenderer(p, -1, flags);
 
     if (!renderer) {
-        std::cerr << "SDL2 Unable to create Renderer for window: " << SDL_GetError() << std::endl;
-        throw new GenericException(SDL_GetError());
+        std::string error(SDL_GetError());
+        std::cerr << "SDL2 Unable to create Renderer for window: " << error << std::endl;
+        throw new GenericException(error);
     }
 }
 

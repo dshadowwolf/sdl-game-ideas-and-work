@@ -61,7 +61,25 @@ int main(int argc, char* args[]) {
     std::string panelText[4] = { "This is a test\nThis is only a test", "HELP! I'M TRAPPED IN THE INTERNET!", "Go Away, you bother me!", "Welcome to MS-DOS 2.0" };
     uint8_t which = 0, ow = 1;
     topRightContent->setFontSize(16);
-    
+    std::string current = "Current Video Driver: ";
+    topRightContent->appendData(current+SDL_GetCurrentVideoDriver());
+    int numDrivers = SDL_GetNumVideoDrivers();
+    if (numDrivers <= 0) {
+        std::string err = SDL_GetError();
+        std::string dMessage = "Unable to get available drivers: ";
+        dMessage += err;
+        std::cerr << "Cannot get number of drivers: " << err << std::endl;
+        topRightContent->appendData(dMessage);
+    } else {
+        topRightContent->appendData("Available Drivers: ");
+        for(int i = 0; i < SDL_GetNumVideoDrivers(); i++) {
+            std::string base = "\t";
+            base += SDL_GetVideoDriver(i);
+            topRightContent->appendData(base);
+        }
+        topRightContent->appendData("");
+    }
+
     topPane.setX(topX);
     topPane.setY(topY);
     topDivLeft.setX(topLeftX);

@@ -7,8 +7,9 @@ Texture::Texture(SDL_Renderer *renderer, std::string path) {
     tex = IMG_LoadTexture(renderer, path.c_str());
 
     if ( tex == NULL ) {
-        std::cerr << "SDL2_image LoadTexture failed: " << IMG_GetError() << std::endl;
-        throw new GenericException(IMG_GetError());
+        std::string error(IMG_GetError());
+        std::cerr << "SDL2_image LoadTexture failed: " << error << std::endl;
+        throw new GenericException(error);
     }
 }
 
