@@ -51,8 +51,11 @@ int main(int argc, char* args[]) {
         wind = new SDLWindow("SDL Testing Project", SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN, true);
         renderer = wind->getRenderer(SDL_RENDERER_ACCELERATED);
         uint8_t color[4] = { 0xFF,0xFF,0xFF,0xFF};
-        bottomContent = new Terminal("TASK-OS_313.37# ", renderer, bottomPane.getX()+5, bottomPane.getY()+5, bottomPane.getW() - 5, bottomPane.getH() - 5, false, color, color, "cp437");
+        // bottomContent = new Terminal(int _fd, int _rows, int _cols, TTF_Font* _font) : fd(_fd), matrix(_rows, _cols), font(_font), font_height(TTF_FontHeight(font))
+        // what follows is old and needs replaced... Need to create a file handle of some sort that can be shared by the thread and this process, if not a domain socket or similar
+        // bottomContent = new Terminal("TASK-OS_313.37# ", renderer, bottomPane.getX()+5, bottomPane.getY()+5, bottomPane.getW() - 5, bottomPane.getH() - 5, false, color, color, "cp437");
         topRightContent = new Panel(renderer, topDivRight.getX()+5, topDivRight.getY()+5, topDivRight.getW() - 5, topDivRight.getH() - 5, false, color, color, "terminus");
+        bottomContent = new Terminal(0, 24, 80, TTF_OpenFont("/home/madman/projects/sdl-game-thing/resources/terminus.ttf", 12));
     } catch(GenericException e) {
         std::cerr << "Exception during startup: " << e.what() << std::endl;
         return -1;
@@ -102,7 +105,7 @@ int main(int argc, char* args[]) {
         bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
         topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
         topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
-        bottomContent->draw(&bottomPane);
+        bottomContent->render(renderer->getInternal(), bottomPane.getRect());
         topRightContent->appendData(panelText[(ow++)%4]);
         topRightContent->draw(&topDivRight);
         renderer->present();

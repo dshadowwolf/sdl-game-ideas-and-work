@@ -2,118 +2,304 @@
 
 #include "panel.hpp"
 #include "eventmarshaller.hpp"
+#include "matrix.hpp"
+#include <vterm.h>
+#include <SDL_ttf.h>
 
-class Terminal : protected Panel {
-    std::string currentInput = "";
-    std::string thePrompt;
-    bool needsPrompt = true;
-    bool appendCurrent = false;
+#include <unicode/unistr.h>
+#include <unicode/normlzr.h>
 
-    public:
-    Terminal(std::string prompt, Renderer *renderer, uint32_t xLoc, uint32_t yLoc, uint32_t width, uint32_t height, bool hasBorder, uint8_t borderColor[4], uint8_t textColor[4], std::string fontName)
-        : Panel(renderer, xLoc, yLoc, width, height, hasBorder, (uint8_t *) borderColor, (uint8_t *) textColor, fontName ),
-                thePrompt(prompt)
-    {
-        Panel::setFontSize(15);
+#include <termios.h>
+#include <pty.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/wait.h>
 
-        // register event stuff for doing echo and input stuff
-        EventMarshaller *events = *(EventMarshaller::getInstance());
-        events->registerEventHandler(SDL_KEYDOWN, [&, this](SDL_Event *event) -> bool {
-            const auto modifiers = event->key.keysym.mod;
-            const auto key = event->key.keysym.sym;
-            if ((((key >= SDLK_0 && key <= SDLK_9) || (key >= SDLK_a && key <= SDLK_z)) || 
-                   key == SDLK_SPACE) && (modifiers == KMOD_NONE || (modifiers & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT | KMOD_NUM | KMOD_CAPS)))) {
-                if (modifiers & (KMOD_SHIFT | KMOD_CAPS)) {
-                    if (!(modifiers & (KMOD_CTRL | KMOD_ALT))) {
-                        char nc = (key != SDLK_SPACE)?key-32:' ';
-                        currentInput += nc;
-                        mDisplayText += nc;
-                        needsPrompt = false;
-                    } else {
-                        appendData("CTRL and ALT modifiers not handled currently for non-exit input\n");
-                        needsPrompt = true;
-                        appendCurrent = true;
-                    }
-                } else {
-                    if (!(modifiers & (KMOD_CTRL | KMOD_ALT))) {
-                        char nc = (key != SDLK_SPACE)?key:' ';
-                        currentInput += nc;
-                        mDisplayText += nc;
-                        needsPrompt = false;
-                    } else {
-                        appendData("CTRL and ALT modifiers not handled currently for non-exit input\n");
-                        needsPrompt = true;
-                        appendCurrent = true;
+/*
+ * Like matrix.hpp this has been borrowed from a gist by Tomoatsu Shimada (@shimarin)
+ */
+
+class Terminal {
+    VTerm* vterm;
+    VTermScreen* screen;
+    Matrix<unsigned char> matrix;
+    TTF_Font* font;
+    int font_width;
+    int font_height;
+    int fd;
+    bool ringing = false;
+
+    const VTermScreenCallbacks screen_callbacks = {
+        damage,
+        moverect,
+        movecursor,
+        settermprop,
+        bell,
+        resize,
+        sb_pushline,
+        sb_popline
+    };
+
+    VTermPos cursor_pos;
+    int fd;
+protected:
+    SDL_Surface* surface = NULL;
+    SDL_Texture* texture = NULL;
+public:
+    // need to wrap this in something else, IMO
+    Terminal(int _rows, int _cols, TTF_Font* _font) : matrix(_rows, _cols), font(_font), font_height(TTF_FontHeight(font)) {
+        vterm = vterm_new(_rows,_cols);
+        vterm_set_utf8(vterm, 1);
+        throw GenericException("Code Broken, Do Not Run");
+        // we need to setup for the command interpreter stuff here...
+        // maybe do a bit of basic parsing ala /bin/sh and then hand off to a script interpreter ?
+        // TODO: Implement the bits that'll go on the other side of `this->fd`
+        vterm_output_set_callback(vterm, output_callback, (void*)&fd);
+
+        screen = vterm_obtain_screen(vterm);
+        std::cerr << "vterm is: " << static_cast<void *>(vterm) << std::endl;
+        std::cerr << "Screen is: " << static_cast<void *>(screen) << std::endl;
+        vterm_screen_set_callbacks(screen, &screen_callbacks, this);
+        vterm_screen_reset(screen, 1);
+
+        matrix.fill(0);
+        TTF_SizeUTF8(font, "X", &font_width, NULL);
+        this->surface = SDL_CreateRGBSurfaceWithFormat(0, font_width * _cols, font_height * _rows, 32, SDL_PIXELFORMAT_RGBA32);
+        
+        SDL_CreateRGBSurface(0, font_width, font_height, 32, 0, 0, 0, 0);
+        SDL_SetSurfaceBlendMode(this->surface, SDL_BLENDMODE_BLEND);
+    }
+
+    ~Terminal() {
+        vterm_free(vterm);
+        invalidateTexture();
+        SDL_FreeSurface(surface);
+    }
+
+    void invalidateTexture() {
+        if (texture) {
+            SDL_DestroyTexture(texture);
+            texture = NULL;
+        }
+    }
+
+    void keyboard_unichar(char c, VTermModifier mod) {
+        vterm_keyboard_unichar(vterm, c, mod);
+    }
+    void keyboard_key(VTermKey key, VTermModifier mod) {
+        vterm_keyboard_key(vterm, key, mod);
+    }
+    void input_write(const char* bytes, size_t len) {
+        vterm_input_write(vterm, bytes, len);
+    }
+    int damage(int start_row, int start_col, int end_row, int end_col) {
+        invalidateTexture();
+        for (int row = start_row; row < end_row; row++) {
+            for (int col = start_col; col < end_col; col++) {
+                matrix(row, col) = 1;
+            }
+        }
+        return 0;
+    }
+    int moverect(VTermRect dest, VTermRect src) {
+        return 0;
+    }
+    int movecursor(VTermPos pos, VTermPos oldpos, int visible) {
+        cursor_pos = pos;
+        return 0;
+    }
+    int settermprop(VTermProp prop, VTermValue *val) {
+        return 0;
+    }
+    int bell() {
+        ringing = true;
+        return 0;
+    }
+    int resize(int rows, int cols) {
+        return 0;
+    }
+
+    int sb_pushline(int cols, const VTermScreenCell *cells) {
+        return 0;
+    }
+
+    int sb_popline(int cols, VTermScreenCell *cells) {
+        return 0;
+    }
+
+    void render(SDL_Renderer* renderer, const SDL_Rect& window_rect) {
+        if (!texture) {
+            for (int row = 0; row < matrix.getRows(); row++) {
+                for (int col = 0; col < matrix.getCols(); col++) {
+                    if (matrix(row, col)) {
+                        VTermPos pos = { row, col };
+                        VTermScreenCell cell;
+                        vterm_screen_get_cell(screen, pos, &cell);
+                        if (cell.chars[0] == 0xffffffff) continue;
+                        icu::UnicodeString ustr;
+                        for (int i = 0; cell.chars[i] != 0 && i < VTERM_MAX_CHARS_PER_CELL; i++) {
+                            ustr.append((UChar32)cell.chars[i]);
+                        }
+                        SDL_Color color = (SDL_Color){128,128,128};
+                        SDL_Color bgcolor = (SDL_Color){0,0,0};
+                        if (VTERM_COLOR_IS_INDEXED(&cell.fg)) {
+                            vterm_screen_convert_color_to_rgb(screen, &cell.fg);
+                        }
+                        if (VTERM_COLOR_IS_RGB(&cell.fg)) {
+                            color = (SDL_Color){cell.fg.rgb.red, cell.fg.rgb.green, cell.fg.rgb.blue};
+                        }
+                        if (VTERM_COLOR_IS_INDEXED(&cell.bg)) {
+                            vterm_screen_convert_color_to_rgb(screen, &cell.bg);
+                        }
+                        if (VTERM_COLOR_IS_RGB(&cell.bg)) {
+                            bgcolor = (SDL_Color){cell.bg.rgb.red, cell.bg.rgb.green, cell.bg.rgb.blue};
+                        }
+
+                        if (cell.attrs.reverse) std::swap(color, bgcolor);
+                        
+                        int style = TTF_STYLE_NORMAL;
+                        if (cell.attrs.bold) style |= TTF_STYLE_BOLD;
+                        if (cell.attrs.underline) style |= TTF_STYLE_UNDERLINE;
+                        if (cell.attrs.italic) style |= TTF_STYLE_ITALIC;
+                        if (cell.attrs.strike) style |= TTF_STYLE_STRIKETHROUGH;
+                        if (cell.attrs.blink) { /*TBD*/ }
+
+                        SDL_Rect rect = { col * font_width, row * font_height, font_width * cell.width, font_height };
+                        SDL_FillRect(surface, &rect, SDL_MapRGB(surface->format, bgcolor.r, bgcolor.g, bgcolor.b));
+
+                        if (ustr.length() > 0) {
+                            UErrorCode status = U_ZERO_ERROR;
+                            auto normalizer = icu::Normalizer2::getNFKCInstance(status);
+                            if (U_FAILURE(status)) throw std::runtime_error("unable to get NFKC normalizer");
+                            auto ustr_normalized = normalizer->normalize(ustr, status);
+                            std::string utf8;
+                            if (U_SUCCESS(status)) {
+                                ustr_normalized.toUTF8String(utf8);
+                            } else {
+                                ustr.toUTF8String(utf8);
+                            }
+                            TTF_SetFontStyle(font, style);
+                            auto text_surface = TTF_RenderUTF8_Blended(font, utf8.c_str(), color);
+                            SDL_SetSurfaceBlendMode(text_surface, SDL_BLENDMODE_BLEND);
+                            SDL_BlitSurface(text_surface, NULL, surface, &rect);
+                            SDL_FreeSurface(text_surface);
+                        }
+                        matrix(row, col) = 0;
                     }
                 }
-            } else if (key == SDLK_BACKSPACE) {
-                mDisplayText = mDisplayText.substr(0, mDisplayText.length() - 1);
-            } else if (key == SDLK_RETURN) {
-                mDisplayText += "\n";
-                mDisplayText += "Final Command: \"";
-                mDisplayText += currentInput;
-                mDisplayText += "\"\n";
-                currentInput.clear();
-                needsPrompt = true;
             }
-            return true;
-        });
-    }
-
-    void draw(Rect *target) {
-        if (mBorder) (*mRect)->drawBorder(*mRenderer, mBorderColor[0], mBorderColor[1], mBorderColor[2], mBorderColor[3]);
-        if (currentInput.empty() && needsPrompt) {
-            mDisplayText.append(thePrompt);
-            if (appendCurrent)
-                mDisplayText.append(currentInput);
-            needsPrompt = false;
-            appendCurrent = false;
+            texture = SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
         }
+        // odd, but if we don't have a texture, we don't have anything to draw! Maybe move this into the previous block ?
+        if( !texture ) SDL_RenderCopy(renderer, texture, NULL, &window_rect);
+        // draw cursor
 
-        if (SDL_GetTicks() % 10) 
-            if (mDisplayText[mDisplayText.length()-1] == '_') mDisplayText = mDisplayText.substr(0, mDisplayText.length() - 1);
-            else mDisplayText.append("_");
+        VTermScreenCell cell;
+        vterm_screen_get_cell(screen, cursor_pos, &cell);
 
-        SDL_Color mColor;
-        mColor.a = mFontColor[3];
-        mColor.b = mFontColor[2];
-        mColor.g = mFontColor[1];
-        mColor.r = mFontColor[0];
+        SDL_Rect rect = { cursor_pos.col * font_width, cursor_pos.row * font_height, font_width, font_height };
+        // scale cursor
+        rect.x = window_rect.x + rect.x * window_rect.w / surface->w;
+        rect.y = window_rect.y + rect.y * window_rect.h / surface->h;
+        rect.w = rect.w * window_rect.w / surface->w;
+        rect.w *= cell.width;
+        rect.h = rect.h * window_rect.h / surface->h;
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 255,255,255,96 );
+        SDL_RenderFillRect(renderer, &rect);
+        SDL_SetRenderDrawColor(renderer, 255,255,255,255 );
+        SDL_RenderDrawRect(renderer, &rect);
 
-        SDL_Surface *textSurface = TTF_RenderUTF8_Blended_Wrapped( *mFont, mDisplayText.c_str(), mColor, (*mRect)->getW() - 25);
-        SDL_Rect srcRect = (*mRect)->getRect();
-        Texture *texture = (*mRenderer)->textureFromSurface(textSurface);
-        int w, h;
-        uint32_t f = SDL_PIXELFORMAT_ABGR8888;
-        texture->query(&f, NULL, &w, &h);
-        if (h > srcRect.h) (*mRect)->setY(h - srcRect.h);
-        else (*mRect)->setY(0);
-        (*mRect)->setX(0);
-        // preserve the original height and width of the target rectangle
-        int orig_w = target->getW();
-        int orig_h = target->getH();
-        int orig_x = target->getX();
-        int orig_y = target->getY();
-        // change them to match what is needed for the text being displayed
-        // this is so things don't get scaled
-        target->setW(w);
-        // lets have this capped, somewhat, so the scrolling works
-        target->setH(h <= srcRect.h?h:srcRect.h);
-        // make sure we render 5px inside the actual border of the box
-        target->setX(target->getX()+5);
-        target->setY(target->getY()+5);
-        (*mRect)->setY((*mRect)->getY()+3);
-        (*mRenderer)->copy(texture, (*mRect), target);
-        (*mRect)->setY((*mRect)->getY()-3);
-        // restore the target rect to its original state
-        target->setW(orig_w);
-        target->setH(orig_h);
-        target->setX(orig_x);
-        target->setY(orig_y);
+        if (ringing) {
+            SDL_SetRenderDrawColor(renderer, 255,255,255,192 );
+            SDL_RenderFillRect(renderer, &window_rect);
+            ringing = 0;
+        }
     }
-    // we do not need these two
-    void drawWithText(Rect * target, std::string text) = delete;
-    void drawWithTextAndSize(Rect *target, std::string text, uint8_t fontSize) = delete;
+
+    void processEvent(const SDL_Event& ev) {
+        if (ev.type == SDL_TEXTINPUT) {
+            const Uint8 *state = SDL_GetKeyboardState(NULL);
+            int mod = VTERM_MOD_NONE;
+            if (state[SDL_SCANCODE_LCTRL] || state[SDL_SCANCODE_RCTRL]) mod |= VTERM_MOD_CTRL;
+            if (state[SDL_SCANCODE_LALT] || state[SDL_SCANCODE_RALT]) mod |= VTERM_MOD_ALT;
+            if (state[SDL_SCANCODE_LSHIFT] || state[SDL_SCANCODE_RSHIFT]) mod |= VTERM_MOD_SHIFT;
+            for (int i = 0; i < strlen(ev.text.text); i++) {
+                keyboard_unichar(ev.text.text[i], (VTermModifier)mod);
+            }
+        } else if (ev.type == SDL_KEYDOWN) {
+            switch (ev.key.keysym.sym) {
+            case SDLK_RETURN:
+            case SDLK_KP_ENTER:
+                keyboard_key(VTERM_KEY_ENTER, VTERM_MOD_NONE);
+                break;
+            case SDLK_BACKSPACE:
+                keyboard_key(VTERM_KEY_BACKSPACE, VTERM_MOD_NONE);
+                break;
+            case SDLK_ESCAPE:
+                keyboard_key(VTERM_KEY_ESCAPE, VTERM_MOD_NONE);
+                break;
+            case SDLK_TAB:
+                keyboard_key(VTERM_KEY_TAB, VTERM_MOD_NONE);
+                break;
+            case SDLK_UP:
+                keyboard_key(VTERM_KEY_UP, VTERM_MOD_NONE);
+                break;
+            case SDLK_DOWN:
+                keyboard_key(VTERM_KEY_DOWN, VTERM_MOD_NONE);
+                break;
+            case SDLK_LEFT:
+                keyboard_key(VTERM_KEY_LEFT, VTERM_MOD_NONE);
+                break;
+            case SDLK_RIGHT:
+                keyboard_key(VTERM_KEY_RIGHT, VTERM_MOD_NONE);
+                break;
+            case SDLK_PAGEUP:
+                keyboard_key(VTERM_KEY_PAGEUP, VTERM_MOD_NONE);
+                break;
+            case SDLK_PAGEDOWN:
+                keyboard_key(VTERM_KEY_PAGEDOWN, VTERM_MOD_NONE);
+                break;
+            case SDLK_HOME:
+                keyboard_key(VTERM_KEY_HOME, VTERM_MOD_NONE);
+                break;
+            case SDLK_END:
+                keyboard_key(VTERM_KEY_END, VTERM_MOD_NONE);
+                break;
+            default:
+                if (ev.key.keysym.mod & KMOD_CTRL && ev.key.keysym.sym < 127) {
+                    //std::cout << ev.key.keysym.sym << std::endl;
+                    keyboard_unichar(ev.key.keysym.sym, VTERM_MOD_CTRL);
+                }
+                break;
+            }
+        }
+    }
+
+    void processInput() {
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(fd, &readfds);
+        timeval timeout = { 0, 0 };
+        if (select(fd + 1, &readfds, NULL, NULL, &timeout) > 0) {
+            char buf[4096];
+            auto size = read(fd, buf, sizeof(buf));
+            if (size > 0) {
+                input_write(buf, size);
+            }
+        }
+    }
+
+    static void output_callback(const char* s, size_t len, void* user);
+    static int damage(VTermRect rect, void *user);
+    static int moverect(VTermRect dest, VTermRect src, void *user);
+    static int movecursor(VTermPos pos, VTermPos oldpos, int visible, void *user);
+    static int settermprop(VTermProp prop, VTermValue *val, void *user);
+    static int bell(void *user);
+    static int resize(int rows, int cols, void *user);
+    static int sb_pushline(int cols, const VTermScreenCell *cells, void *user);
+    static int sb_popline(int cols, VTermScreenCell *cells, void *user);
 };
 
 #define __TERMINAL_HPP__
