@@ -15,6 +15,14 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 
+#include <sys/types.h>          /* See NOTES */
+#include <sys/socket.h>
+#include <sys/un.h>
+
+#include <filesystem>
+#include <errno.h>
+
+#include "texture.hpp"
 /*
  * Like matrix.hpp this has been borrowed from a gist by Tomoatsu Shimada (@shimarin)
  */
@@ -41,16 +49,16 @@ class Terminal {
     };
 
     VTermPos cursor_pos;
-    int fd;
+
 protected:
     SDL_Surface* surface = NULL;
     SDL_Texture* texture = NULL;
 public:
     // need to wrap this in something else, IMO
-    Terminal(int _rows, int _cols, TTF_Font* _font) : matrix(_rows, _cols), font(_font), font_height(TTF_FontHeight(font)) {
+    Terminal(int _fd, int _rows, int _cols, TTF_Font* _font) : fd(_fd), matrix(_rows, _cols), font(_font), font_height(TTF_FontHeight(font)) {
         vterm = vterm_new(_rows,_cols);
         vterm_set_utf8(vterm, 1);
-        throw GenericException("Code Broken, Do Not Run");
+        //throw GenericException("Code Broken, Do Not Run");
         // we need to setup for the command interpreter stuff here...
         // maybe do a bit of basic parsing ala /bin/sh and then hand off to a script interpreter ?
         // TODO: Implement the bits that'll go on the other side of `this->fd`
@@ -63,8 +71,10 @@ public:
         vterm_screen_reset(screen, 1);
 
         matrix.fill(0);
-        TTF_SizeUTF8(font, "X", &font_width, NULL);
-        this->surface = SDL_CreateRGBSurfaceWithFormat(0, font_width * _cols, font_height * _rows, 32, SDL_PIXELFORMAT_RGBA32);
+        TTF_SizeUTF8(font, "X", &font_width, &font_height);
+        std::cerr << "size of largest char is " << font_width << "x" << font_height << std::endl;
+
+        this->surface = SDL_CreateRGBSurfaceWithFormat(0, (font_width * _cols)+10, (font_height * _rows)+10, 32, SDL_PIXELFORMAT_RGBA32);
         
         SDL_CreateRGBSurface(0, font_width, font_height, 32, 0, 0, 0, 0);
         SDL_SetSurfaceBlendMode(this->surface, SDL_BLENDMODE_BLEND);
@@ -127,7 +137,13 @@ public:
         return 0;
     }
 
-    void render(SDL_Renderer* renderer, const SDL_Rect& window_rect) {
+    unsigned int conv_color(VTermColor &cellColor) {
+        unsigned int rr = 0;
+        rr |= (cellColor.rgb.red << 16) | (cellColor.rgb.green << 8) | (cellColor.rgb.blue);
+        return rr;
+    }
+
+    void render(SDL_Renderer* renderer, Rect& w_rect) {
         if (!texture) {
             for (int row = 0; row < matrix.getRows(); row++) {
                 for (int col = 0; col < matrix.getCols(); col++) {
@@ -140,8 +156,8 @@ public:
                         for (int i = 0; cell.chars[i] != 0 && i < VTERM_MAX_CHARS_PER_CELL; i++) {
                             ustr.append((UChar32)cell.chars[i]);
                         }
-                        SDL_Color color = (SDL_Color){128,128,128};
-                        SDL_Color bgcolor = (SDL_Color){0,0,0};
+                        SDL_Color bgcolor = (SDL_Color){128,128,128};
+                        SDL_Color color = (SDL_Color){0,0,0};
                         if (VTERM_COLOR_IS_INDEXED(&cell.fg)) {
                             vterm_screen_convert_color_to_rgb(screen, &cell.fg);
                         }
@@ -178,9 +194,10 @@ public:
                             } else {
                                 ustr.toUTF8String(utf8);
                             }
+
                             TTF_SetFontStyle(font, style);
                             auto text_surface = TTF_RenderUTF8_Blended(font, utf8.c_str(), color);
-                            SDL_SetSurfaceBlendMode(text_surface, SDL_BLENDMODE_BLEND);
+                            //SDL_SetSurfaceBlendMode(text_surface, SDL_BLENDMODE_BLEND);
                             SDL_BlitSurface(text_surface, NULL, surface, &rect);
                             SDL_FreeSurface(text_surface);
                         }
@@ -189,10 +206,19 @@ public:
                 }
             }
             texture = SDL_CreateTextureFromSurface(renderer, surface);
-            SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+            // SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
         }
         // odd, but if we don't have a texture, we don't have anything to draw! Maybe move this into the previous block ?
-        if( !texture ) SDL_RenderCopy(renderer, texture, NULL, &window_rect);
+        if( texture ) {
+            int x = w_rect.getX();
+            int y = w_rect.getY();
+            w_rect.setX(x + 5);
+            w_rect.setY(y + 5);
+            SDL_Rect r = w_rect.getRect();
+            SDL_RenderCopy(renderer, texture, NULL, &r);
+            w_rect.setX(x);
+            w_rect.setY(y);
+        }
         // draw cursor
 
         VTermScreenCell cell;
@@ -200,6 +226,13 @@ public:
 
         SDL_Rect rect = { cursor_pos.col * font_width, cursor_pos.row * font_height, font_width, font_height };
         // scale cursor
+        int xx = w_rect.getX();
+        int yy = w_rect.getY();
+        w_rect.setX(xx + 7);
+        w_rect.setY(yy + 7);
+        SDL_Rect window_rect = w_rect.getRect();
+        w_rect.setX(xx);
+        w_rect.setY(yy);
         rect.x = window_rect.x + rect.x * window_rect.w / surface->w;
         rect.y = window_rect.y + rect.y * window_rect.h / surface->h;
         rect.w = rect.w * window_rect.w / surface->w;
@@ -216,6 +249,7 @@ public:
             SDL_RenderFillRect(renderer, &window_rect);
             ringing = 0;
         }
+
     }
 
     void processEvent(const SDL_Event& ev) {

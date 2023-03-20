@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string>
 #include <iostream>
+#include <thread>
 
 #include "sdl_window.hpp"
 #include "graphics.hpp"
@@ -12,6 +13,7 @@
 #include "generic_exception.hpp"
 #include "panel.hpp"
 #include "terminal.hpp"
+#include "interp.hpp"
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -45,6 +47,11 @@ int main(int argc, char* args[]) {
         return true; 
     });
 
+    int m, s;
+    int zz = openpty(&m, &s, NULL, NULL, NULL);
+    Interpreter interp(s);
+    std::thread interpreter([&interp] { interp.run_loop(); });
+
     TTF_Init();
     try {
         g = new Graphics();
@@ -55,7 +62,7 @@ int main(int argc, char* args[]) {
         // what follows is old and needs replaced... Need to create a file handle of some sort that can be shared by the thread and this process, if not a domain socket or similar
         // bottomContent = new Terminal("TASK-OS_313.37# ", renderer, bottomPane.getX()+5, bottomPane.getY()+5, bottomPane.getW() - 5, bottomPane.getH() - 5, false, color, color, "cp437");
         topRightContent = new Panel(renderer, topDivRight.getX()+5, topDivRight.getY()+5, topDivRight.getW() - 5, topDivRight.getH() - 5, false, color, color, "terminus");
-        bottomContent = new Terminal(0, 24, 80, TTF_OpenFont("/home/madman/projects/sdl-game-thing/resources/terminus.ttf", 12));
+        bottomContent = new Terminal(m, 13, 160, TTF_OpenFont("/home/madman/projects/sdl-game-thing/resources/terminus.ttf", 12));
     } catch(GenericException e) {
         std::cerr << "Exception during startup: " << e.what() << std::endl;
         return -1;
@@ -97,6 +104,7 @@ int main(int argc, char* args[]) {
 
         while(SDL_PollEvent(&e) > 0) {
             events->runEvents(&e);
+            bottomContent->processEvent(e);
         }
 
         renderer->setDrawColor(0x00, 0x00, 0x00, 0xFF);
@@ -105,7 +113,8 @@ int main(int argc, char* args[]) {
         bottomPane.drawBorder(renderer, 0x7F, 0x7F, 0xFF, 0xFF);
         topDivLeft.drawBorder(renderer, 0x7F, 0xFF, 0x7F, 0xFF);
         topDivRight.drawBorder(renderer, 0xFF, 0x7F, 0xFF, 0xFF);
-        bottomContent->render(renderer->getInternal(), bottomPane.getRect());
+        bottomContent->processInput();
+        bottomContent->render(renderer->getInternal(), bottomPane);
         topRightContent->appendData(panelText[(ow++)%4]);
         topRightContent->draw(&topDivRight);
         renderer->present();
