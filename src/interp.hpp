@@ -13,8 +13,8 @@
 #include <vector>
 #include <functional>
 #include <ext/stdio_filebuf.h>
-
 #include "program_status.hpp"
+#include "graphics_threader.hpp"
 
 class Interpreter {
 public:
@@ -44,6 +44,18 @@ private:
             write(fd, "Exiting...\n", 12);
             GameThingStatus::quit = true;
           }
+        },
+        { "print", [](int fd, std::vector<std::string> args) -> void {
+                std::string buffer;
+                std::for_each(args.begin(), args.end(), 
+                    [&buffer](std::string arg) { 
+                        buffer += arg + " ";
+                });
+                buffer = buffer.substr(0, buffer.length() - 1);
+                buffer += "\n";
+                GameThingStatus::runner->postMessage(buffer);
+                write(fd, "OK\n", 3);
+            }
         },
         { "quit", [](int fd, std::vector<std::string> args) -> void {
             write(fd, "Exiting...\n", 12);

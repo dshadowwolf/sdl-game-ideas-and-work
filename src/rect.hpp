@@ -13,6 +13,12 @@ class Rect {
 
     public:
     Rect(uint32_t s_width, uint32_t s_height);
+    inline Rect(Rect &other) {
+        rect = other.rect;
+        screen_width = other.screen_width;
+        screen_height = other.screen_height;
+    };
+    inline Rect() {};
 
     void setW(uint32_t w);
     void setH(uint32_t h);

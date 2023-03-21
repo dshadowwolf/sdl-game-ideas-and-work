@@ -1,7 +1,8 @@
 #include <iostream>
 #include "sdl_window.hpp"
 #include "generic_exception.hpp"
-SDLWindow::SDLWindow(std::string title, int width, int height, uint32_t flags, bool centered) {
+SDLWindow::SDLWindow(std::string title_, int width_, int height_, uint32_t flags_, bool centered_)
+    : title(title_), width(width_), height(height_), flags(flags_), centered(centered_) {
     if (centered)
         window = SDL_CreateWindow(title.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width, height, flags);
     else

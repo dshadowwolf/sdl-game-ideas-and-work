@@ -87,6 +87,11 @@ public:
         SDL_FreeSurface(surface);
     }
 
+    void postInput(std::string input) {
+        input_write(input.c_str(), input.length());        
+    }
+
+    
     void invalidateTexture() {
         if (texture) {
             SDL_DestroyTexture(texture);
