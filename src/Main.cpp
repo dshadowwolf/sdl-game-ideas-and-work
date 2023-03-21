@@ -14,6 +14,7 @@
 #include "panel.hpp"
 #include "terminal.hpp"
 #include "interp.hpp"
+#include "program_status.hpp"
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 768
@@ -49,8 +50,6 @@ int main(int argc, char* args[]) {
 
     int m, s;
     int zz = openpty(&m, &s, NULL, NULL, NULL);
-    Interpreter interp(s);
-    std::thread interpreter([&interp] { interp.run_loop(); });
 
     TTF_Init();
     try {
@@ -68,6 +67,9 @@ int main(int argc, char* args[]) {
         return -1;
     }
 
+    Interpreter interp(s);
+    std::thread interpreter([&interp] { interp.run_loop(); });
+    
     std::string panelText[4] = { "This is a test\nThis is only a test", "HELP! I'M TRAPPED IN THE INTERNET!", "Go Away, you bother me!", "Welcome to MS-DOS 2.0" };
     uint8_t which = 0, ow = 1;
     topRightContent->setFontSize(16);
@@ -98,7 +100,7 @@ int main(int argc, char* args[]) {
     topDivRight.setY(topRightY);
     bottomPane.setX(bottomX);
     bottomPane.setY(bottomY);
-
+    
     while(!quit) {
         SDL_Event e;
 
@@ -121,7 +123,8 @@ int main(int argc, char* args[]) {
         wind->updateSurface();
         SDL_Delay(1000);
     }
-
+    GameThingStatus::quit = true;
+    interpreter.join();
     delete renderer;
     delete wind;
     delete g;

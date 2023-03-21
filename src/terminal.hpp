@@ -36,6 +36,7 @@ class Terminal {
     int font_height;
     int fd;
     bool ringing = false;
+    bool first = true;
 
     const VTermScreenCallbacks screen_callbacks = {
         damage,
@@ -144,6 +145,11 @@ public:
     }
 
     void render(SDL_Renderer* renderer, Rect& w_rect) {
+        if (first) { 
+            input_write("\n", 1);
+            first = false;
+        }
+        
         if (!texture) {
             for (int row = 0; row < matrix.getRows(); row++) {
                 for (int col = 0; col < matrix.getCols(); col++) {
