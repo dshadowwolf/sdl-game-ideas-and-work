@@ -20,7 +20,6 @@
 #define SCREEN_HEIGHT 768
 
 int main(int argc, char* args[]) {
-    bool quit = false;
     Renderer *renderer;
     Graphics *g;
     SDLWindow *wind;
@@ -37,14 +36,14 @@ int main(int argc, char* args[]) {
 
     EventMarshaller* events = *(EventMarshaller::getInstance());
 
-    events->registerEventHandler(SDL_QUIT, [&quit](SDL_Event *event) mutable -> bool { quit = true; return true; });
-    events->registerEventHandler(SDL_WINDOWEVENT, [&quit](SDL_Event *event) mutable -> bool { if (event->window.event == SDL_WINDOWEVENT_CLOSE) quit = true; return true; });
-    events->registerEventHandler(SDL_KEYDOWN, [&quit](SDL_Event *e) mutable -> bool { 
+    events->registerEventHandler(SDL_QUIT, [](SDL_Event *event) mutable -> bool { GameThingStatus::quit = true; return true; });
+    events->registerEventHandler(SDL_WINDOWEVENT, [](SDL_Event *event) mutable -> bool { if (event->window.event == SDL_WINDOWEVENT_CLOSE) GameThingStatus::quit = true; return true; });
+    events->registerEventHandler(SDL_KEYDOWN, [](SDL_Event *e) mutable -> bool { 
         const auto ks = e->key.keysym.sym; 
         const auto modifiers = e->key.keysym.mod;
         if (ks == SDLK_ESCAPE &&
             (modifiers & (KMOD_RCTRL|KMOD_RSHIFT|KMOD_RALT))) 
-                quit = true; 
+                GameThingStatus::quit = true; 
         return true; 
     });
 
@@ -100,8 +99,8 @@ int main(int argc, char* args[]) {
     topDivRight.setY(topRightY);
     bottomPane.setX(bottomX);
     bottomPane.setY(bottomY);
-    
-    while(!quit) {
+
+    while(!GameThingStatus::quit) {
         SDL_Event e;
 
         while(SDL_PollEvent(&e) > 0) {
@@ -123,7 +122,7 @@ int main(int argc, char* args[]) {
         wind->updateSurface();
         SDL_Delay(1000);
     }
-    GameThingStatus::quit = true;
+
     interpreter.join();
     delete renderer;
     delete wind;

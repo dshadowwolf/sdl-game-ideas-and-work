@@ -39,6 +39,16 @@ private:
                 });
             write(fd, "\n", 1);
             }
+        },
+        { "exit", [](int fd, std::vector<std::string> args) -> void {
+            write(fd, "Exiting...\n", 12);
+            GameThingStatus::quit = true;
+          }
+        },
+        { "quit", [](int fd, std::vector<std::string> args) -> void {
+            write(fd, "Exiting...\n", 12);
+            GameThingStatus::quit = true;
+          }
         }
     };
 
